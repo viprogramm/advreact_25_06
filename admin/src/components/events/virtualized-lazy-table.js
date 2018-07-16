@@ -7,8 +7,14 @@ import {
   fetchLazy,
   eventListSelector
 } from '../../ducks/events'
-import { Table, Column, InfiniteLoader } from 'react-virtualized'
+import {
+  Table,
+  Column,
+  InfiniteLoader,
+  defaultTableRowRenderer
+} from 'react-virtualized'
 import 'react-virtualized/styles.css'
+import VirtualizedLazyTableRow from './virtualized-lazy-table-row'
 
 export class EventLazyTable extends Component {
   static propTypes = {}
@@ -37,6 +43,7 @@ export class EventLazyTable extends Component {
             height={300}
             onRowClick={this.handleSelect}
             onRowsRendered={onRowsRendered}
+            rowRenderer={(props) => <VirtualizedLazyTableRow {...props} />}
             rowClassName="test__event_table_row"
           >
             <Column dataKey="title" width={200} label="name" />

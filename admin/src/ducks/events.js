@@ -20,6 +20,11 @@ export const FETCH_LAZY_REQUEST = `${prefix}/FETCH_LAZY_REQUEST`
 export const FETCH_LAZY_START = `${prefix}/FETCH_LAZY_START`
 export const FETCH_LAZY_SUCCESS = `${prefix}/FETCH_LAZY_SUCCESS`
 
+export const FETCH_REMOVE_REQUEST = `${prefix}/FETCH_REMOVE_REQUEST`
+export const FETCH_REMOVE_START = `${prefix}/FETCH_REMOVE_START`
+export const FETCH_REMOVE_SUCCESS = `${prefix}/FETCH_REMOVE_SUCCESS`
+export const FETCH_REMOVE_FAIL = `${prefix}/FETCH_REMOVE_FAIL`
+
 /**
  * Reducer
  * */
@@ -59,6 +64,11 @@ export default function reducer(state = new ReducerRecord(), action) {
         .set('loading', false)
         .mergeIn(['entities'], fbToEntities(payload, EventRecord))
         .set('loaded', Object.keys(payload).length < 10)
+
+    case FETCH_REMOVE_SUCCESS:
+      return state.update('entities', (entities) =>
+        entities.filter((entity) => entity.uid !== payload.uid)
+      )
 
     case TOGGLE_SELECT:
       return state.update(
@@ -107,6 +117,13 @@ export const selectedEventsSelector = createSelector(
     eventList.filter((event) => selectedIds.has(event.uid))
 )
 
+export const uidSelector = (_, props) => props.uid
+export const eventSelector = createSelector(
+  stateSelector,
+  uidSelector,
+  (state, uid) => state.entities.find((event) => event.uid === uid)
+)
+
 /**
  * Action Creators
  * */
@@ -125,6 +142,13 @@ export const selectEvent = (uid) => ({
 export function fetchLazy() {
   return {
     type: FETCH_LAZY_REQUEST
+  }
+}
+
+export function fetchRemove(uid) {
+  return {
+    type: FETCH_REMOVE_REQUEST,
+    payload: { uid }
   }
 }
 
@@ -180,6 +204,37 @@ export const fetchLazySaga = function*() {
   }
 }
 
+export function* fetchRemoveSaga({ payload }) {
+  const eventsState = yield select(stateSelector)
+  if (eventsState.loading || eventsState.loaded) return
+
+  yield put({
+    type: FETCH_REMOVE_START
+  })
+
+  try {
+    const ref = firebase.database().ref(`events/${payload.uid}`)
+    yield call([ref, ref.remove])
+    yield put({
+      type: FETCH_REMOVE_SUCCESS,
+      payload: {
+        uid: payload.uid
+      }
+    })
+  } catch (error) {
+    yield put({
+      type: FETCH_REMOVE_FAIL,
+      payload: {
+        error
+      }
+    })
+  }
+}
+
 export function* saga() {
-  yield all([takeEvery(FETCH_ALL_REQUEST, fetchAllSaga), fetchLazySaga()])
+  yield all([
+    takeEvery(FETCH_ALL_REQUEST, fetchAllSaga),
+    fetchLazySaga(),
+    takeEvery(FETCH_REMOVE_REQUEST, fetchRemoveSaga)
+  ])
 }
